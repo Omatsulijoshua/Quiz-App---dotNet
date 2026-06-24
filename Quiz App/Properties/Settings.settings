@@ -5,10 +5,10 @@
     <Setting Name="quizAppConnectionString" Type="(Connection string)" Scope="User">
       <DesignTimeValue Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
 &lt;SerializableConnectionString xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"&gt;
-  &lt;ConnectionString&gt;Server=OMATSULI-TOJU-J;Database=quizApp;User Id=quizusers;Password=Jos@56567;Encrypt=True;TrustServerCertificate=True;MultipleActiveResultSets=True;&lt;/ConnectionString&gt;
+  &lt;ConnectionString&gt;Data Source=(LocalDB)\MSSQLLocalDB;Initial Catalog=QuizAppLocal;Integrated Security=True;Encrypt=False;TrustServerCertificate=True;MultipleActiveResultSets=True;Connect Timeout=30;&lt;/ConnectionString&gt;
   &lt;ProviderName&gt;System.Data.SqlClient&lt;/ProviderName&gt;
 &lt;/SerializableConnectionString&gt;</DesignTimeValue>
-      <Value Profile="(Default)">Server=OMATSULI-TOJU-J;Database=quizApp;User Id=quizusers;Password=Jos@56567;Encrypt=True;TrustServerCertificate=True;MultipleActiveResultSets=True;</Value>
+      <Value Profile="(Default)">Data Source=(LocalDB)\MSSQLLocalDB;Initial Catalog=QuizAppLocal;Integrated Security=True;Encrypt=False;TrustServerCertificate=True;MultipleActiveResultSets=True;Connect Timeout=30;</Value>
     </Setting>
     <Setting Name="ActiveDatabaseMode" Type="System.String" Scope="User">
       <Value Profile="(Default)">Local</Value>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -14,7 +14,7 @@ namespace Quiz_App
     {
 
 
-        private string conn_string = ConfigurationManager.ConnectionStrings["quiz"].ConnectionString;
+        private string conn_string = "";
 
         string query;
 

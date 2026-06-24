@@ -42,11 +42,11 @@ namespace Quiz_App
             ModernUi.ScaleForScreen(this);
             BuildQuestionManagementLayout();
 
-            // Load exams into dataset from DB
-            this.tbl_examsTableAdapter.Fill(this.quizAppDataSet1.tbl_exams);
+            // Load exams from DB
+            DataTable dtExams = new return_class().GetDataTable("SELECT ex_id, ex_name FROM tbl_exams");
 
             // ? Sort exams alphabetically by exam_name
-            DataView dv = new DataView(this.quizAppDataSet1.tbl_exams);
+            DataView dv = new DataView(dtExams);
             dv.Sort = "ex_name ASC"; // <-- make sure column name matches your table exactly
 
             comboBox1.DataSource = dv;

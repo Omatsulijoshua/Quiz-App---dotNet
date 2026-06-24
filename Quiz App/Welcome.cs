@@ -19,10 +19,6 @@ namespace Quiz_App
         private Button testConnectionButton;
         private Panel localSetupCard;
         private Panel azureSetupCard;
-        private TextBox localServerTextBox;
-        private TextBox localDatabaseTextBox;
-        private TextBox localUsernameTextBox;
-        private TextBox localPasswordTextBox;
         private TextBox azureServerTextBox;
         private TextBox azureDatabaseTextBox;
         private TextBox azureUsernameTextBox;
@@ -45,11 +41,29 @@ namespace Quiz_App
             if (connection_class.CurrentMode == DatabaseMode.Offline)
             {
                 MessageBox.Show(
-                    "Database access is paused. Choose Local SQL or Azure SQL on this launch page before entering the platform.",
+                    "Database access is paused. Choose Local Database or SQL Server on this launch page before entering the platform.",
                     "Database Paused",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;
+            }
+
+            if (connection_class.CurrentMode == DatabaseMode.Local)
+            {
+                try
+                {
+                    connection_class.EnsureLocalDatabaseCopy(out _);
+                    TheorySchemaInstaller.TryEnsureTheoryInfrastructure(out _);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(
+                        $"Could not open the local database. {ex.Message}",
+                        "Local Database",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    return;
+                }
             }
 
             Form1 roleSelectionForm = new Form1();
@@ -137,7 +151,7 @@ namespace Quiz_App
             label2.BackColor = Color.Transparent;
             label2.ForeColor = ModernUi.MutedInk;
             label2.Font = new Font("Segoe UI", 10.75F, FontStyle.Regular, GraphicsUnit.Point);
-            label2.Text = "Secure sessions, faster grading, cleaner exams, and flexible startup between local SQL and Azure SQL.";
+            label2.Text = "Secure sessions, faster grading, cleaner exams, and flexible startup between a local database copy and SQL Server.";
             label2.Size = new Size(720, 64);
             label2.Location = new Point((heroCard.Width - label2.Width) / 2, isConnectionSetupVisible ? 210 : 250);
             label2.TextAlign = ContentAlignment.MiddleCenter;
@@ -242,7 +256,7 @@ namespace Quiz_App
             databaseCard.Controls.Add(heading);
 
             databaseHintLabel = ModernUi.CreateLabel(
-                "Choose where the app should connect before continuing. Pause keeps the app from opening any SQL connection.",
+                "Choose where the app should connect before continuing. Pause keeps the app from opening any database connection.",
                 new Font("Segoe UI", 9.75F, FontStyle.Regular, GraphicsUnit.Point),
                 ModernUi.MutedInk,
                 new Point(24, 46),
@@ -253,7 +267,7 @@ namespace Quiz_App
             localModeButton = new Button
             {
                 Parent = databaseCard,
-                Text = "Use Local SQL",
+                Text = "Use Local DB",
                 Size = new Size(150, 44),
                 Location = new Point(24, 58)
             };
@@ -263,7 +277,7 @@ namespace Quiz_App
             azureModeButton = new Button
             {
                 Parent = databaseCard,
-                Text = "Use Azure SQL",
+                Text = "Use SQL Server",
                 Size = new Size(150, 44),
                 Location = new Point(188, 58)
             };
@@ -283,7 +297,7 @@ namespace Quiz_App
             testConnectionButton = new Button
             {
                 Parent = databaseCard,
-                Text = "Test Connection",
+                Text = "Test Database",
                 Size = new Size(150, 44),
                 Location = new Point(databaseCard.Width - 174, 58)
             };
@@ -326,21 +340,16 @@ namespace Quiz_App
                 azureSetupCard.Bounds = new Rectangle(heroCard.Width - 48 - editorWidth, editorTop, editorWidth, editorHeight);
             }
 
-            BuildConnectionEditor(
+            BuildLocalDatabaseEditor(
                 localSetupCard,
-                "Local SQL Setup",
-                "Set the machine server or LAN SQL details used inside your office or school.",
-                out localServerTextBox,
-                out localDatabaseTextBox,
-                out localUsernameTextBox,
-                out localPasswordTextBox,
+                "Local Database",
                 out saveLocalButton,
                 SaveLocalButton_Click);
 
             BuildConnectionEditor(
                 azureSetupCard,
-                "Azure SQL Setup",
-                "Set the Azure server, database, admin username, and password used online.",
+                "SQL Server Setup",
+                "Set the SQL Server, database, username, and password used on your server or network.",
                 out azureServerTextBox,
                 out azureDatabaseTextBox,
                 out azureUsernameTextBox,
@@ -353,6 +362,53 @@ namespace Quiz_App
         {
             isConnectionSetupVisible = !isConnectionSetupVisible;
             UpdateConnectionEditorsVisibility();
+        }
+
+        private void BuildLocalDatabaseEditor(
+            Panel host,
+            string title,
+            out Button prepareButton,
+            EventHandler prepareHandler)
+        {
+            host.Controls.Clear();
+
+            Label titleLabel = ModernUi.CreateLabel(
+                title,
+                new Font("Segoe UI Semibold", 12F, FontStyle.Bold, GraphicsUnit.Point),
+                ModernUi.Ink,
+                new Point(18, 14),
+                new Size(220, 24),
+                ContentAlignment.MiddleLeft);
+            host.Controls.Add(titleLabel);
+
+            Label subLabel = ModernUi.CreateLabel(
+                "Uses the database copy saved on this computer. No server name, SQL login, or password is needed for this mode.",
+                new Font("Segoe UI", 8.5F, FontStyle.Regular, GraphicsUnit.Point),
+                ModernUi.MutedInk,
+                new Point(18, 42),
+                new Size(host.Width - 36, 34),
+                ContentAlignment.MiddleLeft);
+            host.Controls.Add(subLabel);
+
+            Label pathLabel = ModernUi.CreateLabel(
+                connection_class.LocalDatabaseFilePath,
+                new Font("Segoe UI", 8F, FontStyle.Regular, GraphicsUnit.Point),
+                ModernUi.MutedInk,
+                new Point(18, 82),
+                new Size(host.Width - 36, 38),
+                ContentAlignment.MiddleLeft);
+            host.Controls.Add(pathLabel);
+
+            prepareButton = new Button
+            {
+                Parent = host,
+                Text = "Prepare",
+                Size = new Size(90, 32),
+                Location = new Point(host.Width - 108, 14)
+            };
+            ModernUi.StylePrimaryButton(prepareButton);
+            prepareButton.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold, GraphicsUnit.Point);
+            prepareButton.Click += prepareHandler;
         }
 
         private void BuildConnectionEditor(
@@ -440,7 +496,6 @@ namespace Quiz_App
 
         private void LoadSavedConnectionDetails()
         {
-            PopulateEditor(connection_class.GetConnectionDetails(DatabaseMode.Local), localServerTextBox, localDatabaseTextBox, localUsernameTextBox, localPasswordTextBox, false);
             PopulateEditor(connection_class.GetConnectionDetails(DatabaseMode.Azure), azureServerTextBox, azureDatabaseTextBox, azureUsernameTextBox, azurePasswordTextBox, true);
         }
 
@@ -516,7 +571,7 @@ namespace Quiz_App
             {
                 status = mode == DatabaseMode.Offline
                     ? "Database access is paused from the launch page."
-                    : $"Active mode: {modeLabel}. Press Test Connection before login if you want to verify access.";
+                    : $"Active mode: {modeLabel}. Press Test Database before login if you want to verify access.";
             }
 
             databaseStatusLabel.ForeColor = mode == DatabaseMode.Offline
@@ -525,10 +580,10 @@ namespace Quiz_App
             databaseStatusLabel.Text = status;
 
             databaseHintLabel.Text = mode == DatabaseMode.Azure
-                ? "Azure SQL mode uses the 'quiz_azure' connection string in App.config. Update that value with your real Azure server details."
+                ? "SQL Server mode uses the server settings saved here, or the 'quiz_azure' connection string in App.config."
                 : mode == DatabaseMode.Local
-                    ? "Local SQL mode uses the 'quiz_local' connection string in App.config for the machine-hosted database."
-                    : "Pause Access prevents new SQL connections from the app so users do not hit access-denied errors while the database is unavailable.";
+                    ? "Local Database mode uses a copy restored from quizApp.bak and saved on this computer."
+                    : "Pause Access prevents new database connections from the app so users do not hit access-denied errors while the database is unavailable.";
         }
 
         private void UpdateConnectionEditorsVisibility()
@@ -575,18 +630,15 @@ namespace Quiz_App
         {
             try
             {
-                connection_class.ConfigureLocalConnection(
-                    localServerTextBox.Text.Trim(),
-                    localDatabaseTextBox.Text.Trim(),
-                    localUsernameTextBox.Text.Trim(),
-                    localPasswordTextBox.Text);
+                connection_class.ConfigureLocalConnection(null, null, null, null);
+                connection_class.EnsureLocalDatabaseCopy(out string message);
 
-                RefreshDatabaseCard("Local SQL setup saved successfully.", true);
-                MessageBox.Show("Local SQL settings saved.", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                RefreshDatabaseCard(message, true);
+                MessageBox.Show(message, "Local Database", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Could not save Local SQL settings. {ex.Message}", "Save Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Could not prepare the local database. {ex.Message}", "Local Database", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -600,12 +652,12 @@ namespace Quiz_App
                     azureUsernameTextBox.Text.Trim(),
                     azurePasswordTextBox.Text);
 
-                RefreshDatabaseCard("Azure SQL setup saved successfully.", true);
-                MessageBox.Show("Azure SQL settings saved.", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                RefreshDatabaseCard("SQL Server setup saved successfully.", true);
+                MessageBox.Show("SQL Server settings saved.", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Could not save Azure SQL settings. {ex.Message}", "Save Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Could not save SQL Server settings. {ex.Message}", "Save Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }

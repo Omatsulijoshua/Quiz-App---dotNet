@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -15,7 +15,7 @@ namespace Quiz_App
     {
 
 
-        private string conn_string = ConfigurationManager.ConnectionStrings["quiz"].ConnectionString;
+        private string conn_string = "";
 
 
         public string scalerReturn(string q)

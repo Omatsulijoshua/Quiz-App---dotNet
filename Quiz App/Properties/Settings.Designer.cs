@@ -26,8 +26,8 @@ namespace Quiz_App.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.SpecialSettingAttribute(global::System.Configuration.SpecialSetting.ConnectionString)]
-        [global::System.Configuration.DefaultSettingValueAttribute("Server=OMATSULI-TOJU-J;Database=quizApp;User Id=quizusers;Password=Jos@56567;" +
-            "Encrypt=True;TrustServerCertificate=True;MultipleActiveResultSets=True;")]
+        [global::System.Configuration.DefaultSettingValueAttribute("Data Source=(LocalDB)\\MSSQLLocalDB;Initial Catalog=QuizAppLocal;Integrated Security=True" +
+            ";Encrypt=False;TrustServerCertificate=True;MultipleActiveResultSets=True;Connect Timeout=30;")]
         public string quizAppConnectionString {
             get {
                 return ((string)(this["quizAppConnectionString"]));

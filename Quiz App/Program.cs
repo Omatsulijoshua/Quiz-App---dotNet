@@ -22,7 +22,10 @@ namespace Quiz_App
             }
 
             connection_class.Initialize();
-            TheorySchemaInstaller.TryEnsureTheoryInfrastructure(out _);
+            if (connection_class.CurrentMode != DatabaseMode.Local)
+            {
+                TheorySchemaInstaller.TryEnsureTheoryInfrastructure(out _);
+            }
             Application.Run(new Home(/*1, 101, 10*/));
         }
     }

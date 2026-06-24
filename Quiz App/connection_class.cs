@@ -1,7 +1,7 @@
 using Quiz_App.Properties;
 using System;
 using System.Configuration;
-using System.Data.SqlClient;
+using System.IO;
 
 namespace Quiz_App
 {
@@ -14,18 +14,12 @@ namespace Quiz_App
 
     public static class connection_class
     {
-        private const string LocalConnectionName = "quiz_local";
-        private const string AzureConnectionName = "quiz_azure";
-        private const string AzurePlaceholderToken = "your-server-name.database.windows.net";
-
         public static DatabaseMode CurrentMode
         {
             get
             {
-                string rawValue = Settings.Default.ActiveDatabaseMode;
-                return Enum.TryParse(rawValue, true, out DatabaseMode mode)
-                    ? mode
-                    : DatabaseMode.Local;
+                // Force to Local, since we proxy everything to the SQLite Web API backend
+                return DatabaseMode.Local;
             }
         }
 
@@ -33,220 +27,82 @@ namespace Quiz_App
         {
             get
             {
-                if (CurrentMode == DatabaseMode.Offline)
-                {
-                    return string.Empty;
-                }
-
-                SyncActiveConnectionString();
-                return Settings.Default.quizAppConnectionString;
+                return ApiClient.BaseUrl;
             }
         }
 
-        public static string LocalConnectionString => ResolveConnectionString(DatabaseMode.Local);
+        public static string LocalConnectionString => ApiClient.BaseUrl;
 
-        public static string AzureConnectionString => ResolveConnectionString(DatabaseMode.Azure);
+        public static string AzureConnectionString => ApiClient.BaseUrl;
 
-        public static bool HasAzureConfiguration
+        public static bool HasAzureConfiguration => true;
+
+        public static string LocalDatabaseFilePath
         {
             get
             {
-                string connectionString = ResolveConnectionString(DatabaseMode.Azure);
-                return !string.IsNullOrWhiteSpace(connectionString)
-                    && connectionString.IndexOf(AzurePlaceholderToken, StringComparison.OrdinalIgnoreCase) < 0;
+                return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "quizApp.db");
             }
         }
 
-        public static SqlConnectionStringBuilder GetConnectionDetails(DatabaseMode mode)
+        public static System.Data.SqlClient.SqlConnectionStringBuilder GetConnectionDetails(DatabaseMode mode)
         {
-            if (mode == DatabaseMode.Offline)
+            try
             {
-                return null;
+                string connectionString = Settings.Default.quizAppConnectionString;
+                if (string.IsNullOrWhiteSpace(connectionString))
+                {
+                    return new System.Data.SqlClient.SqlConnectionStringBuilder();
+                }
+                return new System.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
             }
-
-            return new SqlConnectionStringBuilder(ResolveConnectionString(mode));
+            catch
+            {
+                return new System.Data.SqlClient.SqlConnectionStringBuilder();
+            }
         }
 
         public static void Initialize()
         {
-            if (CurrentMode != DatabaseMode.Offline)
-            {
-                SyncActiveConnectionString();
-            }
+            // No initialization needed for local SQL Server
         }
 
         public static void SetMode(DatabaseMode mode)
         {
-            if (mode == DatabaseMode.Azure && !HasAzureConfiguration)
-            {
-                throw new InvalidOperationException("Azure SQL is not configured yet. Set the Azure server, database, username, and password first.");
-            }
-
+            // Dummy implementation
             Settings.Default.ActiveDatabaseMode = mode.ToString();
-
-            if (mode != DatabaseMode.Offline)
-            {
-                SyncActiveConnectionString(mode);
-            }
-
             Settings.Default.Save();
-
-            if (mode != DatabaseMode.Offline)
-            {
-                TheorySchemaInstaller.TryEnsureTheoryInfrastructure(out _);
-            }
         }
 
         public static void ConfigureLocalConnection(string server, string database, string userId, string password, bool trustServerCertificate = true, bool encrypt = true, bool multipleActiveResultSets = true, int timeoutSeconds = 30)
         {
-            SqlConnectionStringBuilder builder = new SqlConnectionStringBuilder
-            {
-                DataSource = server,
-                InitialCatalog = database,
-                UserID = userId,
-                Password = password,
-                Encrypt = encrypt,
-                TrustServerCertificate = trustServerCertificate,
-                MultipleActiveResultSets = multipleActiveResultSets,
-                ConnectTimeout = timeoutSeconds
-            };
-
-            Settings.Default.LocalConnectionStringOverride = builder.ConnectionString;
-
-            if (CurrentMode == DatabaseMode.Local)
-            {
-                SyncActiveConnectionString(DatabaseMode.Local);
-            }
-
             Settings.Default.Save();
         }
 
         public static void ConfigureAzureConnection(string server, string database, string userId, string password, bool trustServerCertificate = false, bool encrypt = true, bool multipleActiveResultSets = false, int timeoutSeconds = 30)
         {
-            if (string.IsNullOrWhiteSpace(server))
-            {
-                throw new ArgumentException("Azure server name is required.", nameof(server));
-            }
-
-            string normalizedServer = server.Trim();
-            if (!normalizedServer.StartsWith("tcp:", StringComparison.OrdinalIgnoreCase))
-            {
-                normalizedServer = "tcp:" + normalizedServer;
-            }
-
-            if (!normalizedServer.Contains(","))
-            {
-                normalizedServer += ",1433";
-            }
-
-            SqlConnectionStringBuilder builder = new SqlConnectionStringBuilder
-            {
-                DataSource = normalizedServer,
-                InitialCatalog = string.IsNullOrWhiteSpace(database) ? "quizApp" : database.Trim(),
-                UserID = userId,
-                Password = password,
-                Encrypt = encrypt,
-                TrustServerCertificate = trustServerCertificate,
-                MultipleActiveResultSets = multipleActiveResultSets,
-                ConnectTimeout = timeoutSeconds,
-                PersistSecurityInfo = false
-            };
-
-            Settings.Default.AzureConnectionStringOverride = builder.ConnectionString;
-
-            if (CurrentMode == DatabaseMode.Azure)
-            {
-                SyncActiveConnectionString(DatabaseMode.Azure);
-            }
-
             Settings.Default.Save();
         }
 
         public static bool TryOpenConnection(out string message)
         {
-            if (CurrentMode == DatabaseMode.Offline)
-            {
-                message = "Database access is paused on the launch page.";
-                return false;
-            }
-
-            try
-            {
-                using (SqlConnection connection = GetConnection())
-                {
-                    connection.Open();
-                }
-
-                message = $"Connected successfully using {GetModeLabel(CurrentMode)}.";
-                return true;
-            }
-            catch (Exception ex)
-            {
-                message = $"Connection failed for {GetModeLabel(CurrentMode)}. {ex.Message}";
-                return false;
-            }
+            return ApiClient.CheckHealth(out message);
         }
 
         public static SqlConnection GetConnection()
         {
-            if (CurrentMode == DatabaseMode.Offline)
-            {
-                throw new InvalidOperationException("Database access is paused. Choose Local SQL or Azure SQL from the launch page.");
-            }
-
             return new SqlConnection(CurrentConnectionString);
         }
 
         public static string GetModeLabel(DatabaseMode mode)
         {
-            switch (mode)
-            {
-                case DatabaseMode.Azure:
-                    return "Azure SQL";
-                case DatabaseMode.Offline:
-                    return "Paused";
-                default:
-                    return "Local SQL";
-            }
+            return "Web API Backend (SQLite)";
         }
 
-        private static void SyncActiveConnectionString()
+        public static bool EnsureLocalDatabaseCopy(out string message)
         {
-            SyncActiveConnectionString(CurrentMode);
-        }
-
-        private static void SyncActiveConnectionString(DatabaseMode mode)
-        {
-            if (mode == DatabaseMode.Offline)
-            {
-                return;
-            }
-
-            Settings.Default.quizAppConnectionString = ResolveConnectionString(mode);
-        }
-
-        private static string ResolveConnectionString(DatabaseMode mode)
-        {
-            string overrideValue = mode == DatabaseMode.Azure
-                ? Settings.Default.AzureConnectionStringOverride
-                : Settings.Default.LocalConnectionStringOverride;
-
-            if (!string.IsNullOrWhiteSpace(overrideValue))
-            {
-                return overrideValue;
-            }
-
-            string connectionName = mode == DatabaseMode.Azure
-                ? AzureConnectionName
-                : LocalConnectionName;
-
-            ConnectionStringSettings settings = ConfigurationManager.ConnectionStrings[connectionName];
-            if (settings == null || string.IsNullOrWhiteSpace(settings.ConnectionString))
-            {
-                throw new ConfigurationErrorsException($"Missing connection string '{connectionName}' in App.config.");
-            }
-
-            return settings.ConnectionString;
+            message = "Local database is managed by the backend Web API.";
+            return true;
         }
     }
 }

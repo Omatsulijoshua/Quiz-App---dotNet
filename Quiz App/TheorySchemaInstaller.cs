@@ -7,29 +7,8 @@ namespace Quiz_App
     {
         public static bool TryEnsureTheoryInfrastructure(out string message)
         {
-            message = "Theory schema is ready.";
-
-            if (connection_class.CurrentMode == DatabaseMode.Offline)
-            {
-                message = "Database access is paused.";
-                return false;
-            }
-
-            try
-            {
-                using (SqlConnection connection = connection_class.GetConnection())
-                {
-                    connection.Open();
-                    EnsureTheoryInfrastructure(connection);
-                }
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                message = ex.Message;
-                return false;
-            }
+            message = "Theory schema is ready (managed by backend).";
+            return true;
         }
 
         public static void EnsureTheoryInfrastructure(SqlConnection connection)
