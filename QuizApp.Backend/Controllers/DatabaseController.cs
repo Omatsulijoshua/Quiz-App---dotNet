@@ -23,7 +23,7 @@ namespace QuizApp.Backend.Controllers
             try
             {
                 // Verify we can talk to the database
-                var result = _dbService.ExecuteScalar("SELECT 1", null);
+                _dbService.ExecuteScalar("SELECT 1");
                 return Ok(new { status = "Healthy", message = "Connected successfully to SQLite database." });
             }
             catch (Exception ex)
@@ -40,10 +40,10 @@ namespace QuizApp.Backend.Controllers
                 var dt = _dbService.ExecuteTable(request.Sql, request.Parameters);
                 
                 // Convert DataTable to list of dictionaries for clean JSON serialization
-                var list = new List<Dictionary<string, object>>();
+                var list = new List<Dictionary<string, object?>>();
                 foreach (DataRow row in dt.Rows)
                 {
-                    var dict = new Dictionary<string, object>();
+                    var dict = new Dictionary<string, object?>();
                     foreach (DataColumn col in dt.Columns)
                     {
                         object value = row[col];
@@ -124,7 +124,7 @@ namespace QuizApp.Backend.Controllers
                         VALUES (@set_exam_date, @stud_id_fk, @exam_id_fk)";
                     
                     // Add standard @ if missing
-                    var parameters = new Dictionary<string, object>();
+                    var parameters = new Dictionary<string, object?>();
                     foreach (var kvp in request.Parameters)
                     {
                         string name = kvp.Key;
@@ -147,7 +147,7 @@ namespace QuizApp.Backend.Controllers
                     int? examId = null;
                     if (request.Parameters != null)
                     {
-                        if (request.Parameters.TryGetValue("@ExamId", out object examIdObj) ||
+                        if (request.Parameters.TryGetValue("@ExamId", out object? examIdObj) ||
                             request.Parameters.TryGetValue("ExamId", out examIdObj))
                         {
                             if (examIdObj != null && examIdObj != DBNull.Value && int.TryParse(examIdObj.ToString(), out int parsedId))
@@ -172,13 +172,13 @@ namespace QuizApp.Backend.Controllers
 
     public class QueryRequest
     {
-        public string Sql { get; set; }
-        public Dictionary<string, object> Parameters { get; set; }
+        public string Sql { get; set; } = string.Empty;
+        public Dictionary<string, object?> Parameters { get; set; } = new Dictionary<string, object?>();
     }
 
     public class ProcedureRequest
     {
-        public string ProcedureName { get; set; }
-        public Dictionary<string, object> Parameters { get; set; }
+        public string ProcedureName { get; set; } = string.Empty;
+        public Dictionary<string, object?> Parameters { get; set; } = new Dictionary<string, object?>();
     }
 }

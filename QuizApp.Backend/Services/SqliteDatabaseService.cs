@@ -259,7 +259,7 @@ namespace QuizApp.Backend.Services
             return sql;
         }
 
-        public DataTable ExecuteTable(string sql, Dictionary<string, object> parameters)
+        public DataTable ExecuteTable(string sql, Dictionary<string, object?>? parameters = null)
         {
             string translated = TranslateQuery(sql);
             var dt = new DataTable();
@@ -280,7 +280,7 @@ namespace QuizApp.Backend.Services
             return dt;
         }
 
-        public object ExecuteScalar(string sql, Dictionary<string, object> parameters)
+        public object ExecuteScalar(string sql, Dictionary<string, object?>? parameters = null)
         {
             string translated = TranslateQuery(sql);
 
@@ -296,7 +296,7 @@ namespace QuizApp.Backend.Services
             }
         }
 
-        public int ExecuteNonQuery(string sql, Dictionary<string, object> parameters)
+        public int ExecuteNonQuery(string sql, Dictionary<string, object?>? parameters = null)
         {
             string translated = TranslateQuery(sql);
 
@@ -362,7 +362,7 @@ namespace QuizApp.Backend.Services
                             {
                                 checkCmd.Parameters.AddWithValue("@studId", total.StudentId);
                                 checkCmd.Parameters.AddWithValue("@examId", total.ExamId);
-                                exists = (long)checkCmd.ExecuteScalar();
+                                exists = Convert.ToInt64(checkCmd.ExecuteScalar() ?? 0);
                             }
 
                             string details = $"Graded answers: {total.GradedAnswers} of {total.AnswerCount}";
@@ -413,7 +413,7 @@ namespace QuizApp.Backend.Services
             }
         }
 
-        private void BindParameters(SqliteCommand command, Dictionary<string, object> parameters)
+        private void BindParameters(SqliteCommand command, Dictionary<string, object?>? parameters)
         {
             if (parameters == null) return;
 
@@ -425,7 +425,7 @@ namespace QuizApp.Backend.Services
                     name = "@" + name;
                 }
 
-                object value = kvp.Value;
+                object? value = kvp.Value;
 
                 // Handle JSON deserialized types (like JObject/Newtonsoft conversion or System.Text.Json)
                 if (value is System.Text.Json.JsonElement element)
@@ -444,14 +444,14 @@ namespace QuizApp.Backend.Services
             }
         }
 
-        private object ConvertJsonElement(System.Text.Json.JsonElement element)
+        private object? ConvertJsonElement(System.Text.Json.JsonElement element)
         {
             switch (element.ValueKind)
             {
                 case System.Text.Json.JsonValueKind.String:
                     // If it is a base64 encoded byte array from client, try to parse it
-                    string val = element.GetString();
-                    if (val != null && val.Length > 20 && IsBase64String(val, out byte[] bytes))
+                    string? val = element.GetString();
+                    if (val != null && val.Length > 20 && IsBase64String(val, out byte[]? bytes))
                     {
                         return bytes;
                     }
@@ -471,7 +471,7 @@ namespace QuizApp.Backend.Services
             }
         }
 
-        private bool IsBase64String(string s, out byte[] bytes)
+        private bool IsBase64String(string s, out byte[]? bytes)
         {
             bytes = null;
             if (string.IsNullOrEmpty(s) || s.Length % 4 != 0
